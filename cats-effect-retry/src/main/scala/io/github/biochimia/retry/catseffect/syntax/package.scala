@@ -12,13 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import cats.Eval
+package io.github.biochimia.retry.catseffect
 
-final object RetryOps {
+package object syntax {
 
-  implicit class RichEval[A](eval: Eval[A]) {
-    def retryOn(pf: PartialFunction[Throwable, Unit])(implicit retryStrategy: Retry.Strategy): Eval[A] =
-      Eval.always(Retry(eval.value)(pf))
-  }
+  object all extends ResourceSyntax
 
 }

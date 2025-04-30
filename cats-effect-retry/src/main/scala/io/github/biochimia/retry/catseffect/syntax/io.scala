@@ -12,23 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import scala.concurrent.duration._
+package io.github.biochimia.retry.catseffect.syntax
 
-import cats.Eval
+import cats.effect.kernel.MonadCancelThrow
+import cats.effect.kernel.Resource
 
-import RetryOps._
+import io.github.biochimia.retry.Retry
 
-final object Main {
+trait ResourceSyntax {
 
-  implicit val retryStrategy: Retry.Strategy = Retry.ExponentialBackoff(50.millis).withJitter.withMaxRetries(5)
-
-  def main(args: Array[String]): Unit = {
-    Eval
-      .always(???)
-      .retryOn { case _: NotImplementedError =>
-        println("Looks like it is not implemented")
-      }
-      .value
-  }
+  implicit def resourceToRetryPolicy[F[_]: MonadCancelThrow](r: Resource[F, Retry.Policy[F]]): Retry[F] =
+    new Retry[F] {
+      def use[A](f: (Retry.Policy[F]) => F[A]): F[A] = r.use(f)
+    }
 
 }

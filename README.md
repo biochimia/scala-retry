@@ -2,68 +2,102 @@
 
 Retries.
 
-## Example
+## Syntax
 
-Code example in [`src/main/scala/Main.scala`](src/main/scala/Main.scala):
+`MonadThrow` instances enriched with three new methods.
+
+### `retry`, match retryable errors in partial function
+
+```scala
+def retry(pf: PartialFunction[Throwable, Unit])(implicit F: MonadThrow[F], R: Retry[F]): F[A]
+```
+
+### `retryNarrow`, match retryable errors by type
+
+```scala
+def retryNarrow[EE <: Throwable](implicit F: MonadThrow[F], R: Retry[F], CT: ClassTag[EE]): F[A]
+```
+
+### `retryWith`, match retryable errors in partial function with effectful return
+
+```scala
+def retryWith(pf: PartialFunction[Throwable, F[Unit]])(implicit F: MonadThrow[F], R: Retry[F]): F[A]
+```
+
+## Examples
+
+Code example in [`examples/src/main/scala/Main.scala`](examples/src/main/scala/Main.scala):
 
 ```scala
 import scala.concurrent.duration._
-import cats.Eval
-import RetryOps._
 
-final object Main {
+import io.github.biochimia.retry.Backoff
+import io.github.biochimia.retry.Retry
+import io.github.biochimia.retry.instances.all._
+import io.github.biochimia.retry.support.EvalTry
+import io.github.biochimia.retry.syntax.all._
 
-  implicit val retryStrategy: Retry.Strategy = Retry.ExponentialBackoff(50.millis).withJitter.withMaxRetries(5)
+object Main {
 
   def main(args: Array[String]): Unit = {
-    Eval
-      .always(???)
-      .retryOn { case _: NotImplementedError =>
-        println("Looks like it is not implemented")
+    implicit val retryPolicy: Retry[EvalTry] =
+      Retry.instance(Retry.Policy.fromRetries(Backoff.exponential(50.millis).take(5)))
+
+    println("Using a retry policy with jittered exponential backoff, 5 retries")
+    EvalTry[Unit](???)
+      .retry { case _: NotImplementedError =>
+        println("Looks like this is not implemented")
       }
+      .map(_.fold(error => error.printStackTrace(), identity))
       .value
   }
 
 }
 ```
 
-### Running the Example
+### Running the examples
 
 ```
 sbt run
 ```
 
 ```
-[info] welcome to sbt 1.10.11 (Homebrew Java 23.0.2)
-[info] loading settings for project scala-retry-build-build from metals.sbt...
-[info] loading project definition from /Users/joao.abecasis/code/github.com/biochimia/scala-retry/project/project
-[info] loading settings for project scala-retry-build from metals.sbt...
-[info] loading project definition from /Users/joao.abecasis/code/github.com/biochimia/scala-retry/project
-[success] Generated .bloop/scala-retry-build.json
-[success] Total time: 1 s, completed Apr 14, 2025, 8:51:26 AM
-[info] loading settings for project scala-retry from build.sbt...
-[info] set current project to retry (in build file:/Users/joao.abecasis/code/github.com/biochimia/scala-retry/)
-[info] running Main 
-Looks like it is not implemented
-Looks like it is not implemented
-Looks like it is not implemented
-Looks like it is not implemented
-Looks like it is not implemented
-[error] scala.NotImplementedError: an implementation is missing
-[error]         at scala.Predef$.$qmark$qmark$qmark(Predef.scala:344)
-[error]         at Main$.$anonfun$main$1(Main.scala:27)
-[error]         at cats.Always.value(Eval.scala:194)
-[error]         at RetryOps$RichEval.$anonfun$retryOn$2(RetryOps.scala:21)
-[error]         at scala.util.Try$.apply(Try.scala:217)
-[error]         at Retry$.tryWithRetries(Retry.scala:65)
-[error]         at Retry$.apply(Retry.scala:57)
-[error]         at RetryOps$RichEval.$anonfun$retryOn$1(RetryOps.scala:21)
-[error]         at cats.Always.value(Eval.scala:194)
-[error]         at Main$.main(Main.scala:28)
-[error]         at Main.main(Main.scala)
-[error]         at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
-[error]         at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-[error] stack trace is suppressed; run last Compile / run for the full output
-[error] (Compile / run) scala.NotImplementedError: an implementation is missing
-[error] Total time: 1 s, completed Apr 14, 2025, 8:51:27 AM
+Using a retry policy with jittered exponential backoff, 5 retries
+Looks like this is not implemented
+Looks like this is not implemented
+Looks like this is not implemented
+Looks like this is not implemented
+Looks like this is not implemented
+io.github.biochimia.retry.OutOfRetriesException: retryable error caught, but no retries left
+        at io.github.biochimia.retry.Retry$$anonfun$attempt$1$1.applyOrElse(Retry.scala:90)
+        at io.github.biochimia.retry.Retry$$anonfun$attempt$1$1.applyOrElse(Retry.scala:85)
+        at cats.ApplicativeError.$anonfun$recoverWith$1(ApplicativeError.scala:172)
+        at io.github.biochimia.retry.instances.EvalTryInstances$$anon$1.$anonfun$handleErrorWith$1(evalTry.scala:40)
+        at cats.Eval$.loop$1(Eval.scala:361)
+        at cats.Eval$.cats$Eval$$evaluate(Eval.scala:386)
+        at cats.Eval$FlatMap.value(Eval.scala:307)
+        at Main$.main(Main.scala:34)
+        at Main.main(Main.scala)
+        at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+        at sbt.Run.invokeMain(Run.scala:135)
+        at sbt.Run.execute$1(Run.scala:85)
+        at sbt.Run.$anonfun$runWithLoader$5(Run.scala:112)
+        at sbt.Run$.executeSuccess(Run.scala:178)
+        at sbt.Run.runWithLoader(Run.scala:112)
+        at sbt.Defaults$.$anonfun$bgRunTask$6(Defaults.scala:2072)
+        at sbt.Defaults$.$anonfun$termWrapper$2(Defaults.scala:2011)
+        at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.java:23)
+        at scala.util.Try$.apply(Try.scala:213)
+        at sbt.internal.BackgroundThreadPool$BackgroundRunnable.run(DefaultBackgroundJobService.scala:378)
+        at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+        at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+        at java.base/java.lang.Thread.run(Thread.java:1575)
+Caused by: scala.NotImplementedError: an implementation is missing
+        at scala.Predef$.$qmark$qmark$qmark(Predef.scala:344)
+        at Main$.$anonfun$main$2(Main.scala:30)
+        at scala.util.Try$.apply(Try.scala:217)
+        at io.github.biochimia.retry.support.EvalTry$.$anonfun$apply$1(EvalTry.scala:25)
+        at cats.Always.value(Eval.scala:194)
+        ... 20 more
 ```
