@@ -21,28 +21,19 @@ import cats.MonadThrow
 import io.github.biochimia.retry.Retry
 
 trait MonadThrowRetrySyntax {
-  implicit final def monadThrowRetrySyntax[F[_], A](fa: F[A]): MonadThrowRetryOps[F, A] = new MonadThrowRetryOps(fa)
+  implicit final def monadThrowRetrySyntax[F[_]: MonadThrow, A](fa: F[A]): MonadThrowRetryOps[F, A] =
+    new MonadThrowRetryOps(fa)
 }
 
-final class MonadThrowRetryOps[F[_], A](private val fa: F[A]) extends AnyVal {
+final class MonadThrowRetryOps[F[_]: MonadThrow, A](private val fa: F[A]) {
 
-  def retry(pf: PartialFunction[Throwable, Unit])(implicit
-      F: MonadThrow[F],
-      R: Retry[F],
-  ): F[A] =
+  def retry(pf: PartialFunction[Throwable, Unit])(implicit R: Retry[F]): F[A] =
     Retry.retry(fa)(pf)
 
-  def retryNarrow[EE <: Throwable](implicit
-      F: MonadThrow[F],
-      R: Retry[F],
-      CT: ClassTag[EE],
-  ): F[A] =
+  def retryNarrow[EE <: Throwable: ClassTag](implicit R: Retry[F]): F[A] =
     Retry.retryNarrow(fa)
 
-  def retryWith(pf: PartialFunction[Throwable, F[Unit]])(implicit
-      F: MonadThrow[F],
-      R: Retry[F],
-  ): F[A] =
+  def retryWith(pf: PartialFunction[Throwable, F[Unit]])(implicit R: Retry[F]): F[A] =
     Retry.retryWith(fa)(pf)
 
 }

@@ -9,7 +9,7 @@ Retries.
 ### `retry`, match retryable errors in partial function
 
 ```scala
-def retry(pf: PartialFunction[Throwable, Unit])(implicit F: MonadThrow[F], R: Retry[F]): F[A]
+def retry(pf: PartialFunction[Throwable, Unit])(implicit R: Retry[F]): F[A]
 ```
 
 ```scala
@@ -21,7 +21,7 @@ fa.retry {
 ### `retryNarrow`, match retryable errors by type
 
 ```scala
-def retryNarrow[EE <: Throwable](implicit F: MonadThrow[F], R: Retry[F], CT: ClassTag[EE]): F[A]
+def retryNarrow[EE <: Throwable: ClassTag](implicit R: Retry[F]): F[A]
 ```
 
 ```scala
@@ -31,7 +31,7 @@ fa.retry[SomeRetryableError]
 ### `retryWith`, match retryable errors in partial function with effectful return
 
 ```scala
-def retryWith(pf: PartialFunction[Throwable, F[Unit]])(implicit F: MonadThrow[F], R: Retry[F]): F[A]
+def retryWith(pf: PartialFunction[Throwable, F[Unit]])(implicit R: Retry[F]): F[A]
 ```
 
 ```scala
